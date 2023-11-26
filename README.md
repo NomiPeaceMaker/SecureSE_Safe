@@ -1,6 +1,6 @@
 # Let's Trace
 
-Realtime Contact Tracing App with end-to-end encryption, made by Nauman
+Realtime Contact Tracing App with end-to-end encryption made for the Secure Software Engineering course at Uni Adelaide.
 
 ## Features/Components
 

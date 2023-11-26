@@ -32,15 +32,15 @@ export default function ChatInput({ handleSendMsg }) {
   return (
     <Container>
       <div className="button-container">
-        <div className="emoji">
+        {/* <div className="emoji">
           <BsEmojiSmileFill onClick={handleEmojiPickerHideShow} />
           {showEmojiPicker && <Picker onEmojiClick={handleEmojiClick} />}
-        </div>
+        </div> */}
       </div>
       <form className="input-container" onSubmit={(e) => sendChat(e)}>
         <input
           type="text"
-          placeholder="Type your message here!"
+          placeholder="Enter your current location and press the send button to notify!"
           value={msg}
           onChange={(e) => {
             setMsg(e.target.value);

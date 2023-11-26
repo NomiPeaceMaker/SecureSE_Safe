@@ -9,7 +9,12 @@ import { JSEncrypt } from "jsencrypt";
 import { AES, enc, pad, mode, MD5 } from "crypto-js";
 import DOMPurify from "dompurify";
 
-export default function ChatContainer({ currentChat, currentUser, socket }) {
+export default function ChatContainer({
+  contacts,
+  currentChat,
+  currentUser,
+  socket,
+}) {
   const [messages, setMessages] = useState([]);
   const [arrivalMessage, setArrivalMessage] = useState(null);
   const scrollRef = useRef();
@@ -80,7 +85,34 @@ export default function ChatContainer({ currentChat, currentUser, socket }) {
     fetchData();
   }, [currentChat, arrivalMessage]);
 
-  const handleSendMsg = async (msg) => {
+  const handleSendMsg = async (
+    msg,
+    anonymous = false,
+    anon_receiver = null,
+    anon_sender = null
+  ) => {
+    msg =
+      "New covid patient detected, they were there at this/these location(s): " +
+      msg +
+      "!";
+    // First check if this is a broadcast message:
+    if (currentChat._id == "65615d7350ee5323b5a1e803" && anonymous == false) {
+      const anonymousUserInfo1 = currentChat; // this is the anonymous chat, now we have to run handle chat with
+      // Person that wishes to broadcast
+      let from = currentUser;
+      // all the other recievers
+      let list_to_broadcast_to = [];
+      // receiver info
+      for (let i = 0; i < contacts.length; i++) {
+        if (contacts[i]._id != currentChat._id && contacts[i]._id != from._id) {
+          // Send the broadcast messages to the following list only
+          list_to_broadcast_to.push(contacts[i]);
+          console.log("The id is: ", contacts[i]._id);
+          handleSendMsg(msg, true, contacts[i], anonymousUserInfo1);
+        }
+      }
+    }
+
     // Generating random string:
     var randomstring = require("randomstring");
     var AES = require("crypto-js/aes");
@@ -93,8 +125,15 @@ export default function ChatContainer({ currentChat, currentUser, socket }) {
     // Encrypting assymetric key with both public keys
     var encryptReceiver = new JSEncrypt();
     var encryptSender = new JSEncrypt();
-    var publicKeyReceiver = currentChat.publicKey;
-    var publicKeySender = currentUser.publicKey;
+    var publicKeyReceiver;
+    var publicKeySender;
+    if (!anonymous) {
+      publicKeyReceiver = currentChat.publicKey;
+      publicKeySender = currentUser.publicKey;
+    } else {
+      publicKeyReceiver = anon_receiver.publicKey;
+      publicKeySender = anon_sender.publicKey;
+    }
 
     // Assign our encryptor to utilize the public key.
     encryptReceiver.setPublicKey(publicKeyReceiver);
@@ -103,24 +142,49 @@ export default function ChatContainer({ currentChat, currentUser, socket }) {
     var encryptedKeyReceiver = encryptReceiver.encrypt(assymetricKey);
     var encryptedKeySender = encryptSender.encrypt(assymetricKey);
 
-    await axios.post(sendMessageRoute, {
-      from: currentUser._id,
-      to: currentChat._id,
-      message: ciphertext,
-      keys: {
-        sender: encryptedKeySender,
-        receiver: encryptedKeyReceiver,
-      },
-    });
-    socket.current.emit("send-msg", {
-      to: currentChat._id,
-      from: currentUser._id,
-      message: ciphertext,
-      keys: {
-        sender: encryptedKeySender,
-        receiver: encryptedKeyReceiver,
-      },
-    });
+    if (!anonymous) {
+      await axios.post(sendMessageRoute, {
+        unencryptedMessage: msg,
+        contacts: contacts,
+        from: currentUser._id,
+        to: currentChat._id,
+        message: ciphertext,
+        keys: {
+          sender: encryptedKeySender,
+          receiver: encryptedKeyReceiver,
+        },
+      });
+      socket.current.emit("send-msg", {
+        to: currentChat._id,
+        from: currentUser._id,
+        message: ciphertext,
+        keys: {
+          sender: encryptedKeySender,
+          receiver: encryptedKeyReceiver,
+        },
+      });
+    } else {
+      await axios.post(sendMessageRoute, {
+        unencryptedMessage: msg,
+        contacts: contacts,
+        from: anon_sender._id,
+        to: anon_receiver._id,
+        message: ciphertext,
+        keys: {
+          sender: encryptedKeySender,
+          receiver: encryptedKeyReceiver,
+        },
+      });
+      socket.current.emit("send-msg", {
+        to: anon_receiver._id,
+        from: anon_sender._id,
+        message: ciphertext,
+        keys: {
+          sender: encryptedKeySender,
+          receiver: encryptedKeyReceiver,
+        },
+      });
+    }
 
     const msgs = [...messages];
     msgs.push({
